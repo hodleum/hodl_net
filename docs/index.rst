@@ -10,6 +10,8 @@ Welcome to hodl-net's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   src/protocol
+
 
 
 Indices and tables

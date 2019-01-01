@@ -20,8 +20,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'hodl-net'
-copyright = '2019, pufit'
-author = 'pufit'
+copyright = '2019, hodleum'
+author = 'hodleum'
 
 # The short X.Y version
 version = ''
