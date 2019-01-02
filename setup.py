@@ -6,5 +6,5 @@ setup(
     description='HODL network',
     author='hodleum',
     packages=find_packages(),
-    install_requires=['twisted', 'werkzeug', 'attrs', 'pycryptodome, sqlalchemy']
+    install_requires=['twisted', 'werkzeug', 'attrs', 'pycryptodome', 'sqlalchemy']
 )
