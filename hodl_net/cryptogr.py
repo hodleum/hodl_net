@@ -6,13 +6,6 @@ from Crypto.Random import get_random_bytes
 import base64
 
 
-def h(s):
-    """
-    Hash
-    """
-    return ''.join([str(e) for e in list(SHA.new(bytes(str(s), 'utf-8')).digest())])
-
-
 def hex_hash(s):
     return SHA.new(s.encode('utf-8')).hexdigest()
 
@@ -33,34 +26,6 @@ def gen_keys():
     privatekey = RSA.generate(2048)
     publickey = privatekey.publickey()
     return privatekey.exportKey().decode(), publickey.exportKey().decode()
-
-
-def sign_block(plaintext, private_key):
-    pass
-    # todo: use pukey hashes in transaction and smart contracts' author fields and store public key in sign
-
-
-def verify_block(s, plaintext, public_key, bch=tuple()):
-    """
-    Verifies signature
-
-    :param s: signature
-    :type s: str
-
-    :param plaintext: text
-    :type plaintext: str
-
-    :param public_key: RSA public key
-    :type public_key: str
-
-    :param bch: Blockchain
-    :type bch: Blockchain
-
-    :return: bool
-    """
-    if public_key[-1] == ']':
-        return bch.verify_sc_sign(public_key, s)
-    return verify(plaintext, s, public_key)
 
 
 def sign(plaintext: str, private_key: str) -> str:
@@ -84,35 +49,6 @@ def verify(plaintext: str, s: str, public_key: str) -> bool:
         return True
     except ValueError:
         return False
-
-
-def verify_sign(s, plaintext, public_key, bch=tuple()):
-    """
-    Verifies signature
-
-    :param s: signature
-    :type s: str
-
-    :param plaintext: text
-    :type plaintext: str
-
-    :param public_key: RSA public key
-    :type public_key: str
-
-    :param bch: Blockchain
-    :type bch: Blockchain
-
-    :return: bool
-    """
-    if public_key[-1] == ']':
-        return bch.verify_sc_sign(public_key, s)
-    pub_key = RSA.importKey(public_key)
-    plaintext = plaintext.encode('utf-8')
-    # decryption signature
-    myhash = SHA.new(plaintext)
-    signature = PKCS1_v1_5.new(pub_key)
-    test = signature.verify(myhash, base64.decodebytes(s.encode()))
-    return test
 
 
 def encrypt(plaintext: str, pub_key: str) -> str:

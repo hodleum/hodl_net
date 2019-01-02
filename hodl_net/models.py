@@ -1,9 +1,10 @@
-# TODO: docstring
+"""
+Models, required to net work
+"""
 
 from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
-from sqlalchemy import Column, String, create_engine
+from sqlalchemy import Column, String
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 from typing import TypeVar, List, Any, Dict
 from threading import RLock
 from .errors import *
@@ -12,7 +13,6 @@ import uuid
 import attr
 import time
 import json
-import os
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +22,14 @@ lock = RLock()
 T = TypeVar('T', int, str)
 S = TypeVar('S', str, List[str])
 
-with open('net2/config.json') as _fp:
-    Configs = type('Configs', (object,), json.load(_fp))
 
-engine = create_engine(f'sqlite:///db/{Configs.name}_db.sqlite', echo=False,
-                       connect_args={'check_same_thread': False})
-Session = sessionmaker(bind=engine)
-session = Session()
+# with open('hodl_net/config.json') as _fp:
+#     Configs = type('Configs', (object,), json.load(_fp))
+
+# engine = create_engine(f'sqlite:///db/{Configs.name}_db.sqlite', echo=False,
+#                        connect_args={'check_same_thread': False})
+# Session = sessionmaker(bind=engine)
+# session = Session()
 
 
 class TempStructure:
@@ -70,7 +71,12 @@ class TempDict(dict, TempStructure):
 
 @attr.s
 class Message:
-    """Message"""
+    """
+    :param str name: Message name. It needs to call the handler functions
+    :param data: Message data in dictionary
+    :type data: dict or None
+    """
+
     name = attr.ib(type=str)
     data = attr.ib(factory=dict)
     salt = attr.ib(type=str)
@@ -88,19 +94,73 @@ class Message:
             raise BadRequest
 
     def dump(self):
+        """
+        Message to dict
+
+        :rtype: dict
+        """
+
         return attr.asdict(self)
 
     def to_json(self):
+        """
+        Message to JSON
+
+        :return: JSON
+        :rtype: str
+        """
+
         return json.dumps(self.dump())
 
     @classmethod
-    def from_json(cls, data):
+    def from_json(cls, data: str):
+        """
+        Creates a class instance from JSON
+
+        :param str data: Message in JSON
+        :rtype: Message
+        :raise hodl_net.errors.BadRequest: if fields in message have wrong type
+        """
+
         return cls(**json.loads(data))
 
 
 @attr.s
 class MessageWrapper:
-    """Wrapper for message"""
+    """
+    Wrapper for message
+
+    :param message: Message to wrap. str, if encrypted
+    :type message: Message or str
+
+    :param str type: Type of message. Possible types:
+
+        * 'shout' - if you want to notify all net. Not encrypted
+        * 'message' - if you want to send message directly.
+          Encrypted, requires addressee's public key
+        * 'request' - if you want to send message directly to peer via ip address.
+          Not encrypted, not anonymous, not recommended to use.
+
+    :param sender: Nickname of sender.
+    :type sender: str or None
+
+    :param str encoding: Encoding type of class Message. JSON default.
+
+    :param str id: Message id. Generates automatically.
+        If we receive two messages with the same id, one of them will be ignored.
+
+    :param sign: Signature of message. None, if not encrypted.
+    :type sign: str or None
+
+    :param tunnel_id: Id of tunnel. None, if `MessageWrapper.type == 'request` or
+        message already left a tunnel.
+    :type tunnel_id: str or None
+
+
+    .. warning:: If message type is 'request', leave the field 'sender' empty.
+        Otherwise you could be deannoned.
+
+    """
     message = attr.ib(type=Message, default=None)
     type = attr.ib(type=str, default='message')
     sender = attr.ib(type=str, default=None)
@@ -119,7 +179,11 @@ class MessageWrapper:
     @classmethod
     def from_bytes(cls, wrapper: bytes) -> 'MessageWrapper':
         """
-        Decrypts bytes to `MessageWrapper`. Can raise `BadRequest` exception
+        Load `MessageWrapper` from bytes.
+
+        :rtype: MessageWrapper
+
+        :raises hodl_net.errors.BadRequest: if fields in message have wrong type
         """
         try:
             wrapper = json.loads(wrapper.decode('utf-8'))
@@ -165,14 +229,24 @@ class MessageWrapper:
 
     def encrypt(self, public_key: str):
         """
-        Encrypt wrapper with message inside (`self.message` type must be `Message`)
+        Encrypt message (`self.message` type must be `Message`)
+
+        :param str public_key: RSA public key of addressee
+        :return: Encrypted message
+        :rtype: str
         """
+        if isinstance(self.message, str):
+            return self.message
         return encrypt(self.message.to_json(), public_key)
 
     def decrypt(self, private_key: str):
         """
         Decrypt `Message` from string (`self.message type must be `str`)
+
+        :param str private_key: RSA private key
         """
+        if isinstance(self.message, dict):
+            return
         self.message = json.loads(decrypt(self.message, private_key))
 
     def create_sign(self, private_key: str):
@@ -181,6 +255,9 @@ class MessageWrapper:
     def verify(self, public_key: str):
         """
         Verify message in wrapper
+
+        :param str public_key: RSA public key of sender
+        :raises hodl_net.errors.VerificationFailed: if message has bad sign
         """
         if self.type == 'request':
             return
@@ -190,13 +267,31 @@ class MessageWrapper:
     def prepare(self, private_key: str = None, public_key: str = None):
         """
         Prepare wrapper for send
+
+        :param public_key: RSA public key of addressee.
+            None if `MessageWrapper.type == 'request'`
+        :type public_key: str or None
+
+        :param private_key: our RSA private key.
+            None if `MessageWrapper.type` == `'request'` or `'shout'`
+        :type private_key: str or None
+
         """
         assert self.type != 'request' or not self.sender
-        if private_key and self.type != 'request':
-            self.sign = sign(self.message.to_json(), private_key)
-            self.message: Message = self.encrypt(public_key)
+        if self.type == 'request':
+            return
+        if not private_key and self.type != 'shout':
+            raise CryptogrError('Private key is None')
+        self.sign = sign(self.message.to_json(), private_key)
+        self.message: Message = self.encrypt(public_key)
 
     def to_json(self):
+        """
+        MessageWrapper to JSON
+
+        :return: JSON
+        :rtype: str
+        """
         return json.dumps(attr.asdict(self))
 
 
@@ -216,8 +311,8 @@ class Peer(Base):
         """
         Send prepared Message with wrapper to peer.
 
-        WARNING! Don't try to send Message without wrapper.
-        Use Peer.request
+        .. warning:: Don't try to send Message without wrapper.
+            Use `Peer.request` instead
         """
         if isinstance(wrapper, Message):
             log.warning('`Peer.send` method for sending requests is deprecated! '
@@ -229,8 +324,8 @@ class Peer(Base):
         """
         Send request to Peer.
 
-        WARNING! Requests are unsafe.
-        Don't try to send private information via Peer.request
+        .. warning:: Requests are unsafe.
+            Don't try to send private information via `Peer.request`
         """
         log.debug(f'{self}: Send request {message}')
         wrapper = MessageWrapper(message, 'request')
@@ -280,14 +375,13 @@ class Tunnels(TempDict):
             return
         peers[1]._send(message)
 
-
-def create_db():
-    Base.metadata.create_all(engine)
-    session.commit()
-
-
-def drop_db():
-    try:
-        os.remove(f'db/{Configs.name}_db.sqlite')
-    except FileNotFoundError:
-        pass
+# def create_db():
+#     Base.metadata.create_all(engine)
+#     session.commit()
+#
+#
+# def drop_db():
+#     try:
+#         os.remove(f'db/{Configs.name}_db.sqlite')
+#     except FileNotFoundError:
+#         pass
