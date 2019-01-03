@@ -1,4 +1,3 @@
-
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor, defer
 from collections import defaultdict
@@ -28,7 +27,11 @@ def error_cache(func):
 
 
 class PeerProtocol(DatagramProtocol):
-    name = Configs.name  # TODO: names
+    """
+    Main protocol for all interaction with net.
+    """
+
+    name = ''  # TODO: names
 
     def __init__(self, _server: 'Server', r: reactor):
         self.reactor = r
@@ -51,14 +54,6 @@ class PeerProtocol(DatagramProtocol):
 
     def copy(self) -> 'PeerProtocol':
         return self
-
-    @staticmethod
-    def add_object(obj: Any):
-        """
-        DEPRECATED! Use session.add and session.commit instead
-        """
-        session.add(obj)
-        session.commit()
 
     @error_cache
     def datagramReceived(self, datagram: bytes, addr: tuple):
@@ -120,7 +115,12 @@ class PeerProtocol(DatagramProtocol):
 
     def _send(self, wrapper: MessageWrapper, addr):
         """
-        Low level send
+        Low level send.
+
+        :param MessageWrapper wrapper: wrapper to send
+        :param addr: address
+        :type addr: tuple or str
+
         """
         if not wrapper:
             return
@@ -132,7 +132,7 @@ class PeerProtocol(DatagramProtocol):
         d = defer.Deferred()
         self.server._callbacks[wrapper.message.callback].append(d)
 
-    def send(self, message: Message, name: str):  # TODO: callback handler
+    def send(self, message: Message, name: str):
         """
         High level send
         """
@@ -157,6 +157,10 @@ class PeerProtocol(DatagramProtocol):
             tunnel_id=str(uuid.uuid4())
         )
         return self.random_send(wrapper)  # TODO: await generator
+
+    def response(self, to: Message, message: Message):
+        message.callback = to.callback
+        return self.send(message, user.name)  # TODO: peer.response, user.response
 
     @property
     def peers(self) -> List[Peer]:

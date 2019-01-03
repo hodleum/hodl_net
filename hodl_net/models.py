@@ -311,7 +311,9 @@ class Peer(Base):
         """
         Send prepared Message with wrapper to peer.
 
-        .. warning:: Don't try to send Message without wrapper.
+        :param MessageWrapper wrapper: Wrapper to send
+
+        .. warning:: Don't try to send `Message` without wrapper.
             Use `Peer.request` instead
         """
         if isinstance(wrapper, Message):
@@ -362,6 +364,10 @@ class User(Base):
 
 
 class Tunnels(TempDict):
+    """
+    Tunnel class
+    """
+
     expire = 6000
 
     def add(self, tunnel_id: str, backward_peer: Peer, forward_peer: Peer):
