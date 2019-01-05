@@ -97,8 +97,7 @@ class PeerProtocol(DatagramProtocol):
             session.add(_peer)
             session.commit()
             log.debug(f'New peer {addr}')
-            _peer.request(Message('share_peers'))
-
+            _peer.request(Message('share'))
         _peer.proto = self
 
         _user = None
@@ -298,7 +297,7 @@ class Server:
 
         Base.metadata.create_all(self.engine)
         ses.commit()
-        ses.close()
+        ses.close()  # TODO: DB class
 
     def drop_db(self):
         try:

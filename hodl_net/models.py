@@ -6,7 +6,6 @@ from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
 from sqlalchemy import Column, String
 from sqlalchemy.ext.declarative import declarative_base
 from typing import TypeVar, List, Any, Dict
-from threading import RLock
 from .errors import *
 import logging
 import uuid
@@ -17,7 +16,6 @@ import json
 log = logging.getLogger(__name__)
 
 Base = declarative_base()
-lock = RLock()
 
 T = TypeVar('T', int, str)
 S = TypeVar('S', str, List[str])

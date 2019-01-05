@@ -9,7 +9,7 @@ from hodl_net.models import Peer, Message
 
 
 class NetTest(unittest.TestCase):
-    server_counts = 50
+    server_counts = 10
     servers = []
 
     @classmethod
@@ -26,7 +26,7 @@ class NetTest(unittest.TestCase):
             peer = Peer(protocol, addr=f'127.0.0.1:{i}')
             peer.request(Message('ping'))
         time.sleep(3)
-        self.assertAlmostEqual(len(protocol.peers), self.server_counts, delta=1)
+        self.assertEqual(len(protocol.peers), self.server_counts)
         protocol.send_all(Message('ping'))
         time.sleep(1)
 
@@ -34,6 +34,7 @@ class NetTest(unittest.TestCase):
     def tearDownClass(cls):
         for server in cls.servers:
             server.kill()
+        main_server.reactor.stop()
 
 
 if __name__ == '__main__':
