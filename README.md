@@ -1,4 +1,5 @@
-# HODL-NETv2.0
+# HODL-NETv2.0 [![Documentation Status](https://readthedocs.org/projects/hodl-net/badge/?version=latest)](https://hodl-main.readthedocs.io/projects/net/ru/latest/?badge=latest)
+
 
 **HODL-NET** - decentralized encrypted anonymous self-creating network overlay over Internet. Main goal of this project - total anonimity. We achieve it by using user auth by hash of public key, tunneling system and continously generation of "trash" messages.
 
