@@ -1,6 +1,8 @@
 language: python
-python: 3.6
+python: 3.7
 sudo: required
-before_install: 
-    - "sudo pip3 install setuptools; sudo python3 setup.py install"
+before_install:
+    - sudo pip install setuptools
+install: 
+    - "sudo python3 setup.py install"
 script: "python3 tests/net_test.py"
