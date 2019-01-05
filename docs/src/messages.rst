@@ -4,8 +4,7 @@ Message format
 Message
 -------
 
-`hodl_net.models.Message` - тело сообщения. Любые функции для отправки сообщений ожидают экземпляр именно
-этого класса. В нём есть два основных поля и два системных.
+`hodl_net.models.Message` - body of message. Any functions for sending message awaiting instance of this class.
 
 
 .. autoclass:: hodl_net.models.Message
@@ -14,8 +13,8 @@ Message
 MessageWrapper
 --------------
 
-`hodl_net.models.MessageWrapper` - системная оболчка для сообщений, содержащая всю необходимую информацию.
-Использовать и редактировать какие-либо поля этого класса не рекомендуется.
+`hodl_net.models.MessageWrapper` - internal shell for messages, containing all required information.
+You shouldn't use any arguments of this class.
 
 .. autoclass:: hodl_net.models.MessageWrapper
     :members:
