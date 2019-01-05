@@ -1,6 +1,6 @@
 # HODL-NETv2.0
 
-**HODL-NET** - decentralized encrypted anonymous self-creating network overlay over Internet. Main goal of this project - total anonimity. We achive it by using user auth by hash of public key, tunneling system and continously generation of "trash" messages.
+**HODL-NET** - decentralized encrypted anonymous self-creating network overlay over Internet. Main goal of this project - total anonimity. We achieve it by using user auth by hash of public key, tunneling system and continously generation of "trash" messages.
 
 ### Simple Usage Example:
 
@@ -13,7 +13,7 @@ from hodl_net.models import Message
 @server.on_open()
 async def hello_world(_):
     response = await protocol.shout(Message(name='give_me_data'))
-    print(resзonse.data['secret_data'])
+    print(response.data['secret_data'])
 
 
 @server.handle('give_me_data', 'shout')
