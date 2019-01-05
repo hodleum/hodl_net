@@ -2,7 +2,8 @@ Protocol
 ========
 
 
-Любые взаимодействия с сетью осуществляются через экземпляр класса `Protocol`
+Any operations with network made using `Protocol` class
 
 
-
+.. autoclass:: hodl_net.server.PeerProtocol
+    :members:
