@@ -1,0 +1,6 @@
+language: python
+python: 3.6
+sudo: required
+before_install: 
+    - "sudo python3 setup.py install"
+script: "python3 tests/net_test.py"

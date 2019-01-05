@@ -1,29 +1,31 @@
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import SingletonThreadPool
 from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, threads
 from collections import defaultdict
 from typing import Callable
-from .models import *
 from werkzeug.local import Local
+from hodl_net.models import *
 from hodl_net.cryptogr import gen_keys
-from .errors import *
+from hodl_net.errors import *
 import logging
 import random
+import os
 
 log = logging.getLogger(__name__)
 
 local = Local()
 peer: Peer = local('peer')
 user: User = local('user')
+session = local('session')
 
 
-def error_cache(func):
-    def wrapper(self, *args, **kwargs):
-        try:
-            return func(self, *args, **kwargs)
-        except BaseError as _:
-            log.exception('Exception during handling message.')
+def to_thread(f):
+    def wrapper(*args, **kwargs):
+        return threads.deferToThread(f, *args, **kwargs)
 
-    return wrapper
+    return wrapper()
 
 
 class PeerProtocol(DatagramProtocol):
@@ -31,7 +33,7 @@ class PeerProtocol(DatagramProtocol):
     Main protocol for all interaction with net.
     """
 
-    name = ''  # TODO: names
+    name = None  # TODO: names
 
     def __init__(self, _server: 'Server', r: reactor):
         self.reactor = r
@@ -39,25 +41,37 @@ class PeerProtocol(DatagramProtocol):
 
         self.temp = TempDict(factory=None)
         self.tunnels = TempDict(factory=None)
+        self.public_key, self.private_key = None, None
 
+    def prepare_keys(self):
         try:
-            with open(f'net2/{self.name}_keys') as f:
-                self.public, self.private_key = json.loads(f.read())
+            with open(f'{self.name}_keys') as f:
+                self.public_key, self.private_key = json.loads(f.read())
         except FileNotFoundError:
             self._gen_keys()
 
     def _gen_keys(self):
-        self.private_key, self.public = gen_keys()
-        with open(f'net2/{self.name}_keys', 'w') as f:
+        self.private_key, self.public_key = gen_keys()
+        with open(f'{self.name}_keys', 'w') as f:
             log.info(f'keys generated {self.name}')
-            f.write(json.dumps([self.public, self.private_key]))
+            f.write(json.dumps([self.public_key, self.private_key]))
 
     def copy(self) -> 'PeerProtocol':
         return self
 
-    @error_cache
+    # noinspection PyUnresolvedReferences,PyDunderSlots
     def datagramReceived(self, datagram: bytes, addr: tuple):
+        local.session = sessionmaker(bind=self.server.engine)()
+        try:
+            return self.handle_datagram(datagram, addr)
+        except Exception as _:
+            log.exception('Exception during handling message.')
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
+    def handle_datagram(self, datagram: bytes, addr: tuple):
         addr = ':'.join(map(str, addr))
         log.debug(f'Datagram received {datagram}')
         wrapper = MessageWrapper.from_bytes(datagram)
@@ -101,7 +115,9 @@ class PeerProtocol(DatagramProtocol):
         callbacks = self.server._callbacks[wrapper.message.callback]
         if callbacks:
             for i in range(len(callbacks)):
-                callbacks.pop(i).callback(wrapper.message)
+                call = callbacks.pop()
+                if call:
+                    call.callback(wrapper.message)
             return
 
         for func in self.server._handlers[wrapper.type][wrapper.message.name]:
@@ -167,10 +183,12 @@ class PeerProtocol(DatagramProtocol):
         """
         All peers in DB
         """
+        ses = sessionmaker(bind=self.server.engine)()
         peers = []
-        for _peer in session.query(Peer).all():
+        for _peer in ses.query(Peer).all():
             _peer.proto = self
             peers.append(_peer)
+        ses.close()
         return peers  # TODO: generator mb
 
     def send_all(self, message: Message):
@@ -197,7 +215,7 @@ class Server:
     _on_close_func = None
     _on_open_func = None
 
-    def __init__(self, port: int = Configs.port, white: bool = True):
+    def __init__(self, port: int = 8000, white: bool = True):
         from twisted.internet import reactor
 
         self.port = port
@@ -207,7 +225,7 @@ class Server:
         self.udp = PeerProtocol(self, reactor)
 
         self.engine = None
-        self.session = None
+        self.prepared = False
 
     def handle(self, event: S, _type: str = 'message') -> Callable:
         """
@@ -242,18 +260,51 @@ class Server:
 
         return decorator
 
-    def run(self, port: int = None):
+    def prepare(self, port: int = None, name: str = None):
         # TODO: docstring
 
         self.port = port if port else self.port
+        self.udp.name = name if name else self.udp.name
 
-        logging.basicConfig(level=logging.DEBUG if Configs.debug else logging.INFO,
+        self.udp.name = name
+        self.udp.prepare_keys()
+
+        logging.basicConfig(level=logging.DEBUG,
                             format=f'%(name)s.%(funcName)-20s [LINE:%(lineno)-3s]# [{self.port}]'
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
 
+        self.engine = create_engine(f'sqlite:///{self.udp.name}_db.sqlite', poolclass=SingletonThreadPool)
+
         self.reactor.listenUDP(self.port, self.udp)
         log.info(f'Started at {self.port}')
+        self.prepared = True
+
+    def run(self, *args, **kwargs):
+        if not self.prepared:
+            self.prepare(*args, **kwargs)
         self.reactor.run()
+
+    @property
+    def name(self):
+        return self.udp.name
+
+    def set_name(self, name):
+        self.udp.name = name
+
+    def create_db(self, with_drop=False):
+        if with_drop:
+            self.drop_db()
+        ses = sessionmaker(bind=self.engine)()
+
+        Base.metadata.create_all(self.engine)
+        ses.commit()
+        ses.close()
+
+    def drop_db(self):
+        try:
+            os.remove(f'{self.udp.name}_db.sqlite')
+        except FileNotFoundError:
+            pass
 
 
 server = Server()
