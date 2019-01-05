@@ -21,7 +21,7 @@ def get_random(n=8):
 def gen_keys():
     """
     Generates keys
-    :return: (private key, public key)
+    :return: (private key, public_key key)
     """
     privatekey = RSA.generate(2048)
     publickey = privatekey.publickey()

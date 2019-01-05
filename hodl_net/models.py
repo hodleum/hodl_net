@@ -23,15 +23,6 @@ T = TypeVar('T', int, str)
 S = TypeVar('S', str, List[str])
 
 
-# with open('hodl_net/config.json') as _fp:
-#     Configs = type('Configs', (object,), json.load(_fp))
-
-# engine = create_engine(f'sqlite:///db/{Configs.name}_db.sqlite', echo=False,
-#                        connect_args={'check_same_thread': False})
-# Session = sessionmaker(bind=engine)
-# session = Session()
-
-
 class TempStructure:
     update_time = 5
     expire = 60
@@ -60,6 +51,10 @@ class TempDict(dict, TempStructure):
             self[key] = value
             return value
         return super().__getitem__(key)['value']
+
+    def pop(self, key):
+        if super().__getitem__(key):
+            return super().pop(key)
 
     def check(self):
         if time.time() - self.last_check < self.update_time:
@@ -137,7 +132,7 @@ class MessageWrapper:
 
         * 'shout' - if you want to notify all net. Not encrypted
         * 'message' - if you want to send message directly.
-          Encrypted, requires addressee's public key
+          Encrypted, requires addressee's public_key key
         * 'request' - if you want to send message directly to peer via ip address.
           Not encrypted, not anonymous, not recommended to use.
 
@@ -231,7 +226,7 @@ class MessageWrapper:
         """
         Encrypt message (`self.message` type must be `Message`)
 
-        :param str public_key: RSA public key of addressee
+        :param str public_key: RSA public_key key of addressee
         :return: Encrypted message
         :rtype: str
         """
@@ -256,7 +251,7 @@ class MessageWrapper:
         """
         Verify message in wrapper
 
-        :param str public_key: RSA public key of sender
+        :param str public_key: RSA public_key key of sender
         :raises hodl_net.errors.VerificationFailed: if message has bad sign
         """
         if self.type == 'request':
@@ -268,7 +263,7 @@ class MessageWrapper:
         """
         Prepare wrapper for send
 
-        :param public_key: RSA public key of addressee.
+        :param public_key: RSA public_key key of addressee.
             None if `MessageWrapper.type == 'request'`
         :type public_key: str or None
 
@@ -380,14 +375,3 @@ class Tunnels(TempDict):
         if not peers:
             return
         peers[1]._send(message)
-
-# def create_db():
-#     Base.metadata.create_all(engine)
-#     session.commit()
-#
-#
-# def drop_db():
-#     try:
-#         os.remove(f'db/{Configs.name}_db.sqlite')
-#     except FileNotFoundError:
-#         pass
