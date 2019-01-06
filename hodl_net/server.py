@@ -4,21 +4,24 @@ from sqlalchemy.pool import SingletonThreadPool
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor, defer, threads
 from collections import defaultdict
-from typing import Callable
-from werkzeug.local import Local
-from hodl_net.models import *
+from typing import Callable, List
+from hodl_net.models import (
+    TempDict, Peer, User, Message, MessageWrapper, Base, S
+)
+from hodl_net.errors import UnhandledRequest
 from hodl_net.cryptogr import gen_keys
-from hodl_net.errors import *
+from hodl_net.globals import *
+
 import logging
 import random
+import json
+import uuid
 import os
 
 log = logging.getLogger(__name__)
 
-local = Local()
-peer: Peer = local('peer')
-user: User = local('user')
-session = local('session')
+peer: Peer
+user: User
 
 
 def to_thread(f):
