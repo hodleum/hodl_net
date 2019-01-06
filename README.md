@@ -23,3 +23,8 @@ async def send_secret_data(message):
         Message(name='data', data={'secret_data': 'very_secret'})
     )
 ```
+
+More info:
+* [Documentation](https://hodl-main.readthedocs.io/projects/net/ru/latest/?badge=latest)
+* [Project on PyPI]()
+* Email us at net_team@hodleum.org
