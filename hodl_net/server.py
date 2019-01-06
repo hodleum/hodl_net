@@ -1,5 +1,5 @@
 from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor, defer, threads
+from twisted.internet import reactor, defer
 from collections import defaultdict
 from typing import Callable, List
 from hodl_net.models import (
@@ -23,9 +23,9 @@ user: User
 
 def to_thread(f):
     def wrapper(*args, **kwargs):
-        return threads.deferToThread(f, *args, **kwargs)
+        return reactor.callInThread(f, *args, **kwargs)
 
-    return wrapper()
+    return wrapper
 
 
 class PeerProtocol(DatagramProtocol):
@@ -217,7 +217,7 @@ class Server:
 
         self.prepared = False
 
-    def handle(self, event: S, _type: str = 'message') -> Callable:
+    def handle(self, event: S, _type: str = 'message', in_thread: bool = True) -> Callable:
         """
 
         @server.handle('echo')
@@ -243,7 +243,8 @@ class Server:
                 local.user = _user
                 d = func(message)
                 return defer.ensureDeferred(d)
-
+            if in_thread:
+                wrapper = to_thread(wrapper)
             for e in event:
                 self._handlers[_type][e].append(wrapper)
             return func
