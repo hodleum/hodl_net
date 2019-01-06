@@ -2,11 +2,13 @@
 Models, required to net work
 """
 
-from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
 from sqlalchemy import Column, String
-from sqlalchemy.ext.declarative import declarative_base
 from typing import TypeVar, List, Any, Dict
-from .errors import *
+
+from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
+from hodl_net.errors import BadRequest, VerificationFailed, CryptogrError
+from hodl_net.database import Base
+
 import logging
 import uuid
 import attr
@@ -14,8 +16,6 @@ import time
 import json
 
 log = logging.getLogger(__name__)
-
-Base = declarative_base()
 
 T = TypeVar('T', int, str)
 S = TypeVar('S', str, List[str])

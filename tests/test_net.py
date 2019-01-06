@@ -5,6 +5,7 @@ import time
 from threading import Thread
 
 from hodl_net.protocol import server as main_server, protocol
+from hodl_net.database import create_db
 from hodl_net.models import Peer, Message
 
 
@@ -42,5 +43,5 @@ if __name__ == '__main__':
     main_server.reactor.callLater(0, test_thread.start)
 
     main_server.prepare(port=8000, name='8000')
-    main_server.create_db(with_drop=True)
+    create_db(with_drop=True)
     main_server.run()

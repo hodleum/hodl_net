@@ -1,14 +1,12 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import SingletonThreadPool
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor, defer, threads
 from collections import defaultdict
 from typing import Callable, List
 from hodl_net.models import (
-    TempDict, Peer, User, Message, MessageWrapper, Base, S
+    TempDict, Peer, User, Message, MessageWrapper, S
 )
 from hodl_net.errors import UnhandledRequest
+from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
 
@@ -16,7 +14,6 @@ import logging
 import random
 import json
 import uuid
-import os
 
 log = logging.getLogger(__name__)
 
@@ -64,16 +61,12 @@ class PeerProtocol(DatagramProtocol):
 
     # noinspection PyUnresolvedReferences,PyDunderSlots
     def datagramReceived(self, datagram: bytes, addr: tuple):
-        local.session = sessionmaker(bind=self.server.engine)()
         try:
             return self.handle_datagram(datagram, addr)
         except Exception as _:
             log.exception('Exception during handling message.')
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
+    @db_worker.with_session
     def handle_datagram(self, datagram: bytes, addr: tuple):
         addr = ':'.join(map(str, addr))
         log.debug(f'Datagram received {datagram}')
@@ -181,16 +174,15 @@ class PeerProtocol(DatagramProtocol):
         return self.send(message, user.name)  # TODO: peer.response, user.response
 
     @property
+    @db_worker.with_session
     def peers(self) -> List[Peer]:
         """
         All peers in DB
         """
-        ses = sessionmaker(bind=self.server.engine)()
         peers = []
-        for _peer in ses.query(Peer).all():
+        for _peer in session.query(Peer).all():
             _peer.proto = self
             peers.append(_peer)
-        ses.close()
         return peers  # TODO: generator mb
 
     def send_all(self, message: Message):
@@ -226,7 +218,6 @@ class Server:
         self.reactor = reactor
         self.udp = PeerProtocol(self, reactor)
 
-        self.engine = None
         self.prepared = False
 
     def handle(self, event: S, _type: str = 'message') -> Callable:
@@ -271,11 +262,11 @@ class Server:
         self.udp.name = name
         self.udp.prepare_keys()
 
+        db_worker.create_connection(f'{self.udp.name}_db.sqlite')
+
         logging.basicConfig(level=logging.DEBUG,
                             format=f'%(name)s.%(funcName)-20s [LINE:%(lineno)-3s]# [{self.port}]'
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
-
-        self.engine = create_engine(f'sqlite:///{self.udp.name}_db.sqlite', poolclass=SingletonThreadPool)
 
         self.reactor.listenUDP(self.port, self.udp)
         log.info(f'Started at {self.port}')
@@ -292,21 +283,6 @@ class Server:
 
     def set_name(self, name):
         self.udp.name = name
-
-    def create_db(self, with_drop=False):
-        if with_drop:
-            self.drop_db()
-        ses = sessionmaker(bind=self.engine)()
-
-        Base.metadata.create_all(self.engine)
-        ses.commit()
-        ses.close()  # TODO: DB class
-
-    def drop_db(self):
-        try:
-            os.remove(f'{self.udp.name}_db.sqlite')
-        except FileNotFoundError:
-            pass
 
 
 server = Server()
