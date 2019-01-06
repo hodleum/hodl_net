@@ -9,4 +9,5 @@ install:
     - python3 setup.py install
 script: 
     - ls
-    - python3 tests/test_net.py
+    - cd tests;ls
+    - python3 test_net.py
