@@ -142,6 +142,7 @@ class PeerProtocol(DatagramProtocol):
         self.transport.write(wrapper.to_json().encode('utf-8'), addr)
         d = defer.Deferred()
         self.server._callbacks[wrapper.message.callback].append(d)
+        return d
 
     def send(self, message: Message, name: str):
         """
@@ -168,10 +169,6 @@ class PeerProtocol(DatagramProtocol):
             tunnel_id=str(uuid.uuid4())
         )
         return self.random_send(wrapper)  # TODO: await generator
-
-    def response(self, to: Message, message: Message):
-        message.callback = to.callback
-        return self.send(message, user.name)  # TODO: peer.response, user.response
 
     @property
     @db_worker.with_session

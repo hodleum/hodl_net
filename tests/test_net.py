@@ -3,14 +3,23 @@ from subprocess import Popen
 from sys import stdout, stderr
 import time
 from threading import Thread
+from twisted.internet.defer import ensureDeferred
 
-from hodl_net.protocol import server as main_server, protocol
+from hodl_net import protocol
+from tests.protocol_for_tests import server as main_server
 from hodl_net.database import create_db
 from hodl_net.models import Peer, Message
 
 
+def async_test(func):
+    def wrapper(*args, **kwargs):
+        return ensureDeferred(func(*args, **kwargs))
+
+    return wrapper
+
+
 class NetTest(unittest.TestCase):
-    server_counts = 10
+    server_counts = 6
     servers = []
 
     @classmethod
@@ -30,6 +39,12 @@ class NetTest(unittest.TestCase):
         self.assertEqual(len(protocol.peers), self.server_counts)
         protocol.send_all(Message('ping'))
         time.sleep(1)
+
+    @async_test
+    async def test_peer_response(self):
+        peer = Peer(protocol, addr=f'127.0.0.1:8001')
+        resp = await peer.request(Message('echo', {'msg': 'test'}))
+        self.assertDictEqual(resp.data, {'msg': 'test'})
 
     @classmethod
     def tearDownClass(cls):

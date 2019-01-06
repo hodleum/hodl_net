@@ -50,10 +50,6 @@ class TempDict(dict, TempStructure):
             return value
         return super().__getitem__(key)['value']
 
-    def pop(self, key):
-        if super().__getitem__(key):
-            return super().pop(key)
-
     def check(self):
         if time.time() - self.last_check < self.update_time:
             return
@@ -300,6 +296,9 @@ class Peer(Base):
     def copy(self):
         return self
 
+    def set_proto(self, proto):
+        self.proto = proto
+
     def send(self, wrapper: MessageWrapper):
         """
         Send prepared Message with wrapper to peer.
@@ -313,7 +312,7 @@ class Peer(Base):
             log.warning('`Peer.send` method for sending requests is deprecated! '
                         'Use `Peer.request` instead')
             return self.request(wrapper)
-        self.proto._send(wrapper, self.addr)
+        return self.proto._send(wrapper, self.addr)
 
     def request(self, message: Message):
         """
@@ -324,7 +323,11 @@ class Peer(Base):
         """
         log.debug(f'{self}: Send request {message}')
         wrapper = MessageWrapper(message, 'request')
-        self.proto._send(wrapper, self.addr)
+        return self.proto._send(wrapper, self.addr)
+
+    def response(self, to: Message, message: Message):
+        message.callback = to.callback
+        return self.request(message)
 
     def dump(self) -> Dict[str, str]:
         return {
@@ -347,7 +350,14 @@ class User(Base):
 
     def send(self, message: Message):
         log.debug(f'{self}: Send {message}')
-        self.proto.send(message, self.name)
+        return self.proto.send(message, self.name)
+
+    def set_proto(self, proto):
+        self.proto = proto
+
+    def response(self, to: Message, message: Message):
+        message.callback = to.callback
+        return self.send(message)
 
     def dump(self) -> Dict[str, str]:
         return {
