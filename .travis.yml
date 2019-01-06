@@ -6,4 +6,5 @@ before_install:
     - sudo pip install setuptools
 install: 
     - sudo pip install -r requirements.txt
+    - python3 setup.py install
 script: "python3 tests/test_net.py"
