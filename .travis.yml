@@ -9,4 +9,4 @@ install:
     - python3 setup.py install
 script: 
     - ls
-    - python3 tests/net_starter.py&sleep 5;python3 tests/test_net.py
+    - python3 tests/test_net.py
