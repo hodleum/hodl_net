@@ -6,7 +6,6 @@ from threading import Thread
 from twisted.internet.defer import ensureDeferred
 
 from hodl_net import protocol
-from tests.protocol_for_tests import server as main_server
 from hodl_net.database import create_db
 from hodl_net.models import Peer, Message
 
@@ -54,6 +53,12 @@ class NetTest(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    import sys
+    sys.path.append('../')
+    from tests.protocol_for_tests import server as main_server
+
+    print(sys.path)
+
     test_thread = Thread(target=unittest.main)
     main_server.reactor.callLater(0, test_thread.start)
 
