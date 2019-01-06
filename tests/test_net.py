@@ -10,7 +10,7 @@ from hodl_net.models import Peer, Message
 
 
 class NetTest(unittest.TestCase):
-    server_counts = 10
+    server_counts = 6
     servers = []
 
     @classmethod
