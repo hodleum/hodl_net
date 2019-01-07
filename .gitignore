@@ -107,3 +107,9 @@ venv.bak/
 *.sqlite
 
 *_keys
+
+# JetBrains IDEs
+
+.idea/*
+
+tests/_trial_temp

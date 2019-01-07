@@ -190,6 +190,9 @@ class PeerProtocol(DatagramProtocol):
     def send_all(self, message: Message):
         """
         Send request to all peers
+
+        :param message: Message to send
+        :return:
         """
         for _peer in self.peers:
             _peer.request(message)
@@ -201,17 +204,27 @@ class PeerProtocol(DatagramProtocol):
     def random_send(self, wrapper: MessageWrapper):
         """
         Send MessageWrapper to random peer
+        :param wrapper: MessageWrapper Instance
+        :return:
         """
         return random.choice(self.peers).send(wrapper)
 
 
 class Server:
+    """
+    Main Server Class
+    """
     _handlers = defaultdict(lambda: defaultdict(lambda: []))
     _callbacks = TempDict()
     _on_close_func = None
     _on_open_func = None
 
     def __init__(self, port: int = 8000, white: bool = True):
+        """
+
+        :param port: port to start server
+        :param white: is ip white
+        """
         from twisted.internet import reactor
 
         self.port = port
@@ -258,7 +271,13 @@ class Server:
         return decorator
 
     def prepare(self, port: int = None, name: str = None):
-        # TODO: docstring
+        """
+        Server preparing function.
+
+        :param port: Port on which we should start server
+        :param name: Server name
+        :return:
+        """
 
         self.port = port if port else self.port
         self.udp.name = name if name else self.udp.name
