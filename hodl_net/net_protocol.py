@@ -1,8 +1,10 @@
 from hodl_net.models import *
-from hodl_net.server import peer, protocol, server, session
+from hodl_net.server import peer, protocol, server, session, call_from_thread
+from hodl_net.database import db_worker
 
 
-@server.handle('share', 'request', in_thread=False)
+@server.handle('share', 'request')
+@db_worker.with_session
 async def share_peers(_):
     peers = [_peer.dump() for _peer in session.query(Peer).all()]
     users = [_user.dump() for _user in session.query(User).all()]
@@ -15,7 +17,8 @@ async def share_peers(_):
     ))
 
 
-@server.handle('new_user', 'shout', in_thread=False)
+@server.handle('new_user', 'shout')
+@db_worker.with_session
 async def record_new_user(message):
     data = message.data
     new_user = session.query(User).filter_by(name=name).first()
@@ -29,7 +32,8 @@ async def record_new_user(message):
         ))
 
 
-@server.handle('share_info', 'request', in_thread=False)
+@server.handle('share_info', 'request')
+@db_worker.with_session
 async def record_peers(message):
     for data in message.data['peers']:
         if not session.query(Peer).filter_by(addr=data['address']).first():
@@ -40,7 +44,7 @@ async def record_peers(message):
         if not session.query(User).filter_by(name=data['name']):
             new_user = Peer(protocol, public_key=data['key'], name=data['name'])
             session.add(new_user)
-    session.commit()
+    call_from_thread(session.commit)
 
 
 @server.handle('ping', 'request')

@@ -28,6 +28,10 @@ def to_thread(f):
     return wrapper
 
 
+def call_from_thread(f, *args, **kwargs):
+    return reactor.callFromThread(f, *args, **kwargs)
+
+
 class PeerProtocol(DatagramProtocol):
     """
     Main protocol for all interaction with net.
@@ -66,8 +70,8 @@ class PeerProtocol(DatagramProtocol):
         except Exception as _:
             log.exception('Exception during handling message.')
 
-    @db_worker.with_session
     def handle_datagram(self, datagram: bytes, addr: tuple):
+        ses = db_worker.get_session()
         addr = ':'.join(map(str, addr))
         log.debug(f'Datagram received {datagram}')
         wrapper = MessageWrapper.from_bytes(datagram)
@@ -87,25 +91,25 @@ class PeerProtocol(DatagramProtocol):
 
         # Decryption message, preparing to process
 
-        _peer = session.query(Peer).filter_by(addr=addr).first()
+        _peer = ses.query(Peer).filter_by(addr=addr).first()
         if not _peer:
             _peer = Peer(self, addr=addr)
-            session.add(_peer)
-            session.commit()
+            ses.add(_peer)
+            ses.commit()
             log.debug(f'New peer {addr}')
             _peer.request(Message('share'))
         _peer.proto = self
 
         _user = None
         if wrapper.sender:
-            _user = session.query(User).filter_by(name=wrapper.sender).first()
+            _user = ses.query(User).filter_by(name=wrapper.sender).first()
             if not local.user:
-                return
+                return db_worker.close_session(ses)
 
             try:
                 wrapper.decrypt(self.private)
             except ValueError:
-                return
+                return db_worker.close_session(ses)
 
         callbacks = self.server._callbacks[wrapper.message.callback]
         if callbacks:
@@ -113,8 +117,9 @@ class PeerProtocol(DatagramProtocol):
                 call = callbacks.pop()
                 if call:
                     call.callback(wrapper.message)
-            return
-
+            return db_worker.close_session(ses)
+        session.commit()
+        session.close()
         for func in self.server._handlers[wrapper.type][wrapper.message.name]:
             if func:
                 func(wrapper.message, _peer, _user)
@@ -243,6 +248,7 @@ class Server:
                 local.user = _user
                 d = func(message)
                 return defer.ensureDeferred(d)
+
             if in_thread:
                 wrapper = to_thread(wrapper)
             for e in event:

@@ -15,11 +15,12 @@ class DBWorker:
 
     def create_connection(self, filename):
         self.filename = filename
-        self.engine = create_engine(f'sqlite:///{filename}', poolclass=SingletonThreadPool)
+        self.engine = create_engine(f'sqlite:///{filename}', poolclass=SingletonThreadPool,
+                                    connect_args={'check_same_thread': False})
 
     def with_session(self, func):
         def wrapper(*args, **kwargs):
-            local.session = sessionmaker(bind=self.engine)()
+            local.session = self.get_session()
             try:
                 return func(*args, **kwargs)
             except Exception as ex:
@@ -29,6 +30,14 @@ class DBWorker:
                 local.session.close()
 
         return wrapper
+
+    @staticmethod
+    def close_session(ses):
+        ses.rollback()
+        ses.close()
+
+    def get_session(self):
+        return sessionmaker(bind=self.engine)()
 
 
 db_worker = DBWorker()
