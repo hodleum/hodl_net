@@ -1,8 +1,8 @@
+import sys
+sys.path.append('../')
+
 from tests.protocol_for_tests import server
 from hodl_net.database import create_db
-import sys
-
-sys.path.append('../')
 
 port = int(sys.argv[1])
 name = str(port)
