@@ -2,12 +2,13 @@
 Models, required to net work
 """
 
-from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
 from sqlalchemy import Column, String
-from sqlalchemy.ext.declarative import declarative_base
 from typing import TypeVar, List, Any, Dict
-from threading import RLock
-from .errors import *
+
+from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
+from hodl_net.errors import BadRequest, VerificationFailed, CryptogrError
+from hodl_net.database import Base
+
 import logging
 import uuid
 import attr
@@ -15,9 +16,6 @@ import time
 import json
 
 log = logging.getLogger(__name__)
-
-Base = declarative_base()
-lock = RLock()
 
 T = TypeVar('T', int, str)
 S = TypeVar('S', str, List[str])
@@ -51,10 +49,6 @@ class TempDict(dict, TempStructure):
             self[key] = value
             return value
         return super().__getitem__(key)['value']
-
-    def pop(self, key):
-        if super().__getitem__(key):
-            return super().pop(key)
 
     def check(self):
         if time.time() - self.last_check < self.update_time:
@@ -302,6 +296,9 @@ class Peer(Base):
     def copy(self):
         return self
 
+    def set_proto(self, proto):
+        self.proto = proto
+
     def send(self, wrapper: MessageWrapper):
         """
         Send prepared Message with wrapper to peer.
@@ -315,7 +312,7 @@ class Peer(Base):
             log.warning('`Peer.send` method for sending requests is deprecated! '
                         'Use `Peer.request` instead')
             return self.request(wrapper)
-        self.proto._send(wrapper, self.addr)
+        return self.proto._send(wrapper, self.addr)
 
     def request(self, message: Message):
         """
@@ -326,7 +323,11 @@ class Peer(Base):
         """
         log.debug(f'{self}: Send request {message}')
         wrapper = MessageWrapper(message, 'request')
-        self.proto._send(wrapper, self.addr)
+        return self.proto._send(wrapper, self.addr)
+
+    def response(self, to: Message, message: Message):
+        message.callback = to.callback
+        return self.request(message)
 
     def dump(self) -> Dict[str, str]:
         return {
@@ -349,7 +350,14 @@ class User(Base):
 
     def send(self, message: Message):
         log.debug(f'{self}: Send {message}')
-        self.proto.send(message, self.name)
+        return self.proto.send(message, self.name)
+
+    def set_proto(self, proto):
+        self.proto = proto
+
+    def response(self, to: Message, message: Message):
+        message.callback = to.callback
+        return self.send(message)
 
     def dump(self) -> Dict[str, str]:
         return {

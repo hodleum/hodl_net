@@ -1,9 +1,12 @@
-from hodl_net.protocol import server
 import sys
+sys.path.append('../')
+
+from tests.protocol_for_tests import server
+from hodl_net.database import create_db
 
 port = int(sys.argv[1])
 name = str(port)
 
 server.prepare(port=port, name=name)
-server.create_db(with_drop=True)
+create_db(with_drop=True)
 server.run()

@@ -102,3 +102,14 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# database files
+*.sqlite
+
+*_keys
+
+# JetBrains IDEs
+
+.idea/*
+
+tests/_trial_temp

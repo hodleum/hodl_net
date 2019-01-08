@@ -1,31 +1,35 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import SingletonThreadPool
 from twisted.internet.protocol import DatagramProtocol
-from twisted.internet import reactor, defer, threads
+from twisted.internet import reactor, defer
 from collections import defaultdict
-from typing import Callable
-from werkzeug.local import Local
-from hodl_net.models import *
+from typing import Callable, List
+from hodl_net.models import (
+    TempDict, Peer, User, Message, MessageWrapper, S
+)
+from hodl_net.errors import UnhandledRequest
+from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
-from hodl_net.errors import *
+from hodl_net.globals import *
+
 import logging
 import random
-import os
+import json
+import uuid
 
 log = logging.getLogger(__name__)
 
-local = Local()
-peer: Peer = local('peer')
-user: User = local('user')
-session = local('session')
+peer: Peer
+user: User
 
 
 def to_thread(f):
     def wrapper(*args, **kwargs):
-        return threads.deferToThread(f, *args, **kwargs)
+        return reactor.callInThread(f, *args, **kwargs)
 
-    return wrapper()
+    return wrapper
+
+
+def call_from_thread(f, *args, **kwargs):
+    return reactor.callFromThread(f, *args, **kwargs)
 
 
 class PeerProtocol(DatagramProtocol):
@@ -61,17 +65,13 @@ class PeerProtocol(DatagramProtocol):
 
     # noinspection PyUnresolvedReferences,PyDunderSlots
     def datagramReceived(self, datagram: bytes, addr: tuple):
-        local.session = sessionmaker(bind=self.server.engine)()
         try:
             return self.handle_datagram(datagram, addr)
         except Exception as _:
             log.exception('Exception during handling message.')
-            session.rollback()
-            raise
-        finally:
-            session.close()
 
     def handle_datagram(self, datagram: bytes, addr: tuple):
+        ses = db_worker.get_session()
         addr = ':'.join(map(str, addr))
         log.debug(f'Datagram received {datagram}')
         wrapper = MessageWrapper.from_bytes(datagram)
@@ -91,26 +91,25 @@ class PeerProtocol(DatagramProtocol):
 
         # Decryption message, preparing to process
 
-        _peer = session.query(Peer).filter_by(addr=addr).first()
+        _peer = ses.query(Peer).filter_by(addr=addr).first()
         if not _peer:
             _peer = Peer(self, addr=addr)
-            session.add(_peer)
-            session.commit()
+            ses.add(_peer)
+            ses.commit()
             log.debug(f'New peer {addr}')
-            _peer.request(Message('share_peers'))
-
+            _peer.request(Message('share'))
         _peer.proto = self
 
         _user = None
         if wrapper.sender:
-            _user = session.query(User).filter_by(name=wrapper.sender).first()
+            _user = ses.query(User).filter_by(name=wrapper.sender).first()
             if not local.user:
-                return
+                return db_worker.close_session(ses)
 
             try:
                 wrapper.decrypt(self.private)
             except ValueError:
-                return
+                return db_worker.close_session(ses)
 
         callbacks = self.server._callbacks[wrapper.message.callback]
         if callbacks:
@@ -118,8 +117,9 @@ class PeerProtocol(DatagramProtocol):
                 call = callbacks.pop()
                 if call:
                     call.callback(wrapper.message)
-            return
-
+            return db_worker.close_session(ses)
+        session.commit()
+        session.close()
         for func in self.server._handlers[wrapper.type][wrapper.message.name]:
             if func:
                 func(wrapper.message, _peer, _user)
@@ -147,6 +147,7 @@ class PeerProtocol(DatagramProtocol):
         self.transport.write(wrapper.to_json().encode('utf-8'), addr)
         d = defer.Deferred()
         self.server._callbacks[wrapper.message.callback].append(d)
+        return d
 
     def send(self, message: Message, name: str):
         """
@@ -174,26 +175,24 @@ class PeerProtocol(DatagramProtocol):
         )
         return self.random_send(wrapper)  # TODO: await generator
 
-    def response(self, to: Message, message: Message):
-        message.callback = to.callback
-        return self.send(message, user.name)  # TODO: peer.response, user.response
-
     @property
+    @db_worker.with_session
     def peers(self) -> List[Peer]:
         """
         All peers in DB
         """
-        ses = sessionmaker(bind=self.server.engine)()
         peers = []
-        for _peer in ses.query(Peer).all():
+        for _peer in session.query(Peer).all():
             _peer.proto = self
             peers.append(_peer)
-        ses.close()
         return peers  # TODO: generator mb
 
     def send_all(self, message: Message):
         """
         Send request to all peers
+
+        :param message: Message to send
+        :return:
         """
         for _peer in self.peers:
             _peer.request(message)
@@ -205,17 +204,27 @@ class PeerProtocol(DatagramProtocol):
     def random_send(self, wrapper: MessageWrapper):
         """
         Send MessageWrapper to random peer
+        :param wrapper: MessageWrapper Instance
+        :return:
         """
         return random.choice(self.peers).send(wrapper)
 
 
 class Server:
+    """
+    Main Server Class
+    """
     _handlers = defaultdict(lambda: defaultdict(lambda: []))
     _callbacks = TempDict()
     _on_close_func = None
     _on_open_func = None
 
     def __init__(self, port: int = 8000, white: bool = True):
+        """
+
+        :param port: port to start server
+        :param white: is ip white
+        """
         from twisted.internet import reactor
 
         self.port = port
@@ -224,10 +233,9 @@ class Server:
         self.reactor = reactor
         self.udp = PeerProtocol(self, reactor)
 
-        self.engine = None
         self.prepared = False
 
-    def handle(self, event: S, _type: str = 'message') -> Callable:
+    def handle(self, event: S, _type: str = 'message', in_thread: bool = True) -> Callable:
         """
 
         @server.handle('echo')
@@ -254,6 +262,8 @@ class Server:
                 d = func(message)
                 return defer.ensureDeferred(d)
 
+            if in_thread:
+                wrapper = to_thread(wrapper)
             for e in event:
                 self._handlers[_type][e].append(wrapper)
             return func
@@ -261,7 +271,13 @@ class Server:
         return decorator
 
     def prepare(self, port: int = None, name: str = None):
-        # TODO: docstring
+        """
+        Server preparing function.
+
+        :param port: Port on which we should start server
+        :param name: Server name
+        :return:
+        """
 
         self.port = port if port else self.port
         self.udp.name = name if name else self.udp.name
@@ -269,11 +285,11 @@ class Server:
         self.udp.name = name
         self.udp.prepare_keys()
 
+        db_worker.create_connection(f'{self.udp.name}_db.sqlite')
+
         logging.basicConfig(level=logging.DEBUG,
                             format=f'%(name)s.%(funcName)-20s [LINE:%(lineno)-3s]# [{self.port}]'
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
-
-        self.engine = create_engine(f'sqlite:///{self.udp.name}_db.sqlite', poolclass=SingletonThreadPool)
 
         self.reactor.listenUDP(self.port, self.udp)
         log.info(f'Started at {self.port}')
@@ -290,21 +306,6 @@ class Server:
 
     def set_name(self, name):
         self.udp.name = name
-
-    def create_db(self, with_drop=False):
-        if with_drop:
-            self.drop_db()
-        ses = sessionmaker(bind=self.engine)()
-
-        Base.metadata.create_all(self.engine)
-        ses.commit()
-        ses.close()
-
-    def drop_db(self):
-        try:
-            os.remove(f'{self.udp.name}_db.sqlite')
-        except FileNotFoundError:
-            pass
 
 
 server = Server()
