@@ -9,6 +9,8 @@ from hodl_net.errors import UnhandledRequest
 from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
+from hodl_net.discovery import LPD
+
 
 import logging
 import random
@@ -34,7 +36,7 @@ def call_from_thread(f, *args, **kwargs):
 
 class PeerProtocol(DatagramProtocol):
     """
-    Main protocol for all interaction with net.
+    Main protocol for all interaction with net stack.
     """
 
     name = None  # TODO: names
@@ -219,7 +221,7 @@ class Server:
     _on_close_func = None
     _on_open_func = None
 
-    def __init__(self, port: int = 8000, white: bool = True):
+    def __init__(self, port: int = 8000, white: bool = True, lpd_port: int = 9999):
         """
 
         :param port: port to start server
@@ -228,11 +230,12 @@ class Server:
         from twisted.internet import reactor
 
         self.port = port
+        self.lpd_port = lpd_port
         self.white = white
 
         self.reactor = reactor
         self.udp = PeerProtocol(self, reactor)
-
+        self.lpd = LPD(self, self.lpd_port, self.port)
         self.prepared = False
 
     def handle(self, event: S, _type: str = 'message', in_thread: bool = True) -> Callable:
@@ -292,6 +295,7 @@ class Server:
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
 
         self.reactor.listenUDP(self.port, self.udp)
+        self.reactor.listenMulticast(self.lpd_port, self.lpd, listenMultiple=True)
         log.info(f'Started at {self.port}')
         self.prepared = True
 

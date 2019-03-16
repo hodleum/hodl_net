@@ -1,6 +1,8 @@
 import sys
 sys.path.append('../')
 
+print(sys.path)
+
 from tests.protocol_for_tests import server
 from hodl_net.database import create_db
 

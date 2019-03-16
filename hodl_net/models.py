@@ -1,5 +1,5 @@
 """
-Models, required to net work
+Models, required for net full-functioning
 """
 
 from sqlalchemy import Column, String
@@ -124,7 +124,7 @@ class MessageWrapper:
 
     :param str type: Type of message. Possible types:
 
-        * 'shout' - if you want to notify all net. Not encrypted
+        * 'shout' - if you want to notify all network. Not encrypted. Work like Broadcast
         * 'message' - if you want to send message directly.
           Encrypted, requires addressee's public_key key
         * 'request' - if you want to send message directly to peer via ip address.
@@ -135,19 +135,19 @@ class MessageWrapper:
 
     :param str encoding: Encoding type of class Message. JSON default.
 
-    :param str id: Message id. Generates automatically.
-        If we receive two messages with the same id, one of them will be ignored.
+    :param str id: Message id. Generated automatically.
+        If we receive two messages with the same id, one of them will be rejected.
 
-    :param sign: Signature of message. None, if not encrypted.
+    :param sign: Signature of message. None, if it is not encrypted.
     :type sign: str or None
 
-    :param tunnel_id: Id of tunnel. None, if `MessageWrapper.type == 'request` or
+    :param tunnel_id: ID of tunnel. None, if `MessageWrapper.type == 'request` or
         message already left a tunnel.
     :type tunnel_id: str or None
 
 
-    .. warning:: If message type is 'request', leave the field 'sender' empty.
-        Otherwise you could be deannoned.
+    .. UFO Alert!:: If message type is 'request', leave the field 'sender' empty.
+        Otherwise you could be deanonymized.
 
     """
     message = attr.ib(type=Message, default=None)
@@ -251,7 +251,9 @@ class MessageWrapper:
         if self.type == 'request':
             return
         if not verify(self.message.to_json(), self.sign, public_key):
-            raise VerificationFailed('Bad sign')
+            raise VerificationFailed('Bad signature')
+
+
 
     def prepare(self, private_key: str = None, public_key: str = None):
         """

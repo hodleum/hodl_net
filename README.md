@@ -28,3 +28,11 @@ More info:
 * [Documentation](https://hodl-main.readthedocs.io/projects/net/ru/latest/?badge=latest)
 * [Project on PyPI]()
 * Email us at net_team@hodleum.org
+
+
+# Todo:
+
+* DHT
+* Local Peer Discovery
+* API For Alternative Peer Discovery Methods
+* Peer Map Builder

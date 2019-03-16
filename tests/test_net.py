@@ -30,7 +30,7 @@ class NetTest(unittest.TestCase):
 
         time.sleep(1)
         for i in range(8001, 8000 + cls.server_counts):
-            cls.servers.append(Popen(['python', 'net_starter.py', str(i)], stdout=stdout, stderr=stderr))
+            cls.servers.append(Popen(['python3', 'net_starter.py', str(i)], stdout=stdout, stderr=stderr))
             time.sleep(1)
         time.sleep(3)
 
