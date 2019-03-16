@@ -40,7 +40,7 @@ class NetTest(unittest.TestCase):
             peer = Peer(protocol, addr=f'127.0.0.1:{i}')
             peer.request(Message('ping'))
         time.sleep(3)
-        self.assertEqual(len(protocol.peers), self.server_counts)
+        self.assertGreaterEqual(len(protocol.peers), self.server_counts)
         protocol.send_all(Message('ping'))
         time.sleep(1)
         print('OK')

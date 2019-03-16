@@ -11,6 +11,7 @@ from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
 from hodl_net.discovery import LPD
 
+import sqlalchemy.exc
 
 import logging
 import random
@@ -188,6 +189,15 @@ class PeerProtocol(DatagramProtocol):
             _peer.proto = self
             peers.append(_peer)
         return peers  # TODO: generator mb
+
+    def add_peer(self, _peer):
+        ses = db_worker.get_session()
+        ses.add(_peer)
+        try:
+            ses.commit()
+        except sqlalchemy.exc.IntegrityError:
+            pass
+        db_worker.close_session(ses)
 
     def send_all(self, message: Message):
         """
