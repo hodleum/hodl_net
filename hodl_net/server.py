@@ -190,11 +190,16 @@ class PeerProtocol(DatagramProtocol):
             peers.append(_peer)
         return peers  # TODO: generator mb
 
-    def add_peer(self, _peer):
+    def add_peer(self, _peer: Peer, method=None):
         ses = db_worker.get_session()
         ses.add(_peer)
+
         try:
             ses.commit()
+            if method:
+                log.info("Peer {} discovered by {}".format(_peer.addr, method))
+            else:
+                log.info("Peer {} discovered".format(_peer.addr))
         except sqlalchemy.exc.IntegrityError:
             pass
         db_worker.close_session(ses)
