@@ -3,3 +3,4 @@ werkzeug
 attrs
 pycryptodome
 sqlalchemy
+toml
