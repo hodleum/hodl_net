@@ -29,7 +29,7 @@ title = "netstack config"
 
         nodes = [
 
-        "startnode.hodleum.org:8000",
+        "startnode.hodleum.org:49390",
         "node.hodleum.solarfind.net:8000"
 
         ]
