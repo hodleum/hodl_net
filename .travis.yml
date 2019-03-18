@@ -4,9 +4,10 @@ dist: xenial
 sudo: required
 cache: pip
 before_install:
-    - sudo pip install setuptools
+    - sudo python3 -m pip install setuptools
+    - sudo python3 -m pip install -r dev_requirements.txt
 install: 
-    - sudo pip install -r requirements.txt
+    - sudo python3 -m pip install -r requirements.txt
     - python3 setup.py install
 script: 
     - ls
