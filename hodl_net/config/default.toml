@@ -42,3 +42,7 @@ title = "hodleum netstack config"
 
     ]
 
+["upnp"]
+    enabled = true
+
+    search_timeout = 2

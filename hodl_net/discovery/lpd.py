@@ -48,11 +48,17 @@ class LPD(DatagramProtocol):
         }
 
         while True:
-            self.transport.write(dumps(data).encode(), (self.lpd_ip, self.lpd_port))
+            try:
+                self.transport.write(dumps(data).encode(), (self.lpd_ip, self.lpd_port))
+            except AttributeError:
+                log.debug("Detected an AttributeError... Handling it, like a program stop")
+                break
             sleep(self.announce_interval)
 
+        log.info("LPD Caster Stopped...")
+
     def startProtocol(self):
-        log.info("LPD Started")
+        log.info(f"LPD Started at {self.lpd_port}")
 
         # Join the multicast address, so we can receive replies:
         self.transport.joinGroup(self.lpd_ip)

@@ -10,6 +10,7 @@ from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
 from hodl_net.discovery import LPD
+from hodl_net.utils import NatWorker
 from hodl_net.config_loader import load_conf
 
 import sqlalchemy.exc
@@ -238,6 +239,7 @@ class Server:
     _callbacks = TempDict()
     _on_close_func = None
     _on_open_func = None
+    ext_addr = (None, None)
 
     def __init__(self,
                  port: int = conf_file['main']['port'],
@@ -332,7 +334,16 @@ class Server:
         if conf_file['lpd']['enabled']:
             self.reactor.listenMulticast(self.lpd_port, self.lpd, listenMultiple=True)
 
-        log.info(f'Started at {self.port}')
+        log.info(f'Core started at {self.port}')
+
+        if conf_file['upnp']['enabled']:
+            nat_worker = NatWorker()
+
+            if nat_worker:
+                self.ext_addr = nat_worker.get_addrs()
+
+        log.info("Plugin loading finished.")
+
         self.prepared = True
 
     def run(self, *args, **kwargs):
