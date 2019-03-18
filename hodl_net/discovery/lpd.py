@@ -20,10 +20,18 @@ log = logging.getLogger(__name__)
 
 class LPD(DatagramProtocol):
 
-    def __init__(self, core, lpd_port=9999, main_port=8000):
+    def __init__(self,
+                 core,
+                 lpd_port: int = 9999,
+                 main_port: int = 8000,
+                 multicast_ip: str = '224.0.0.1',
+                 lpd_interval: int = 2):
+
         self.core = core
         self.lpd_port = lpd_port
+        self.lpd_ip = multicast_ip
         self.main_port = main_port
+        self.announce_interval = lpd_interval
 
     def announce(self):
 
@@ -40,14 +48,14 @@ class LPD(DatagramProtocol):
         }
 
         while True:
-            self.transport.write(dumps(data).encode(), ("224.0.0.1", self.lpd_port))
-            sleep(2)
+            self.transport.write(dumps(data).encode(), (self.lpd_ip, self.lpd_port))
+            sleep(self.announce_interval)
 
     def startProtocol(self):
         log.info("LPD Started")
 
         # Join the multicast address, so we can receive replies:
-        self.transport.joinGroup("224.0.0.1")
+        self.transport.joinGroup(self.lpd_ip)
         Thread(target=self.announce).start()
 
     def datagramReceived(self, datagram, address):

@@ -10,6 +10,7 @@ from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
 from hodl_net.discovery import LPD
+from hodl_net.config_loader import load_conf
 
 import sqlalchemy.exc
 
@@ -22,6 +23,8 @@ log = logging.getLogger(__name__)
 
 peer: Peer
 user: User
+
+conf_file = load_conf()  # TODO: Remove hard-coded configuration loading
 
 
 def to_thread(f):
@@ -236,7 +239,12 @@ class Server:
     _on_close_func = None
     _on_open_func = None
 
-    def __init__(self, port: int = 8000, white: bool = True, lpd_port: int = 9999):
+    def __init__(self,
+                 port: int = conf_file['main']['port'],
+                 white: bool = True,
+                 lpd_port: int = conf_file['lpd']['port'],
+                 lpd_ip: str = conf_file['lpd']['multicast_ip'],
+                 lpd_interval: int = conf_file['lpd']['send_interval']):
         """
 
         :param port: port to start server
@@ -246,11 +254,21 @@ class Server:
 
         self.port = port
         self.lpd_port = lpd_port
+        self.lpd_ip = lpd_ip
+        self.lpd_interval = lpd_interval
         self.white = white
 
         self.reactor = reactor
         self.udp = PeerProtocol(self, reactor)
-        self.lpd = LPD(self, self.lpd_port, self.port)
+
+        if conf_file['lpd']['enabled']:
+
+            self.lpd = LPD(self,
+                           self.lpd_port,
+                           self.port,
+                           self.lpd_ip,
+                           self.lpd_interval)
+
         self.prepared = False
 
     def handle(self, event: S, _type: str = 'message', in_thread: bool = True) -> Callable:
@@ -308,9 +326,12 @@ class Server:
         logging.basicConfig(level=logging.DEBUG,
                             format=f'%(name)s.%(funcName)-20s [LINE:%(lineno)-3s]# [{self.port}]'
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
-
+# print(conf_file)
         self.reactor.listenUDP(self.port, self.udp)
-        self.reactor.listenMulticast(self.lpd_port, self.lpd, listenMultiple=True)
+
+        if conf_file['lpd']['enabled']:
+            self.reactor.listenMulticast(self.lpd_port, self.lpd, listenMultiple=True)
+
         log.info(f'Started at {self.port}')
         self.prepared = True
 
