@@ -6,5 +6,14 @@ setup(
     description='HODL network',
     author='hodleum',
     packages=find_packages(),
-    install_requires=['twisted', 'werkzeug', 'attrs', 'pycryptodome', 'sqlalchemy']
+    package_data={'': ['config/*.toml']},
+    include_package_data=True,
+    install_requires=['twisted',
+                      'werkzeug',
+                      'attrs',
+                      'pycryptodome',
+                      'sqlalchemy',
+                      'toml',
+                      'upnpclient'
+                      ]
 )

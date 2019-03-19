@@ -1,5 +1,7 @@
-twisted
-werkzeug
-attrs
-pycryptodome
-sqlalchemy
+twisted # Networking Engine and more... Much more...
+werkzeug # "locals" support
+attrs # Class-works
+pycryptodome # Cryptography
+sqlalchemy # Main DB
+toml # Config Files Parser
+upnpclient # UPnP Based Nat-Passthrough

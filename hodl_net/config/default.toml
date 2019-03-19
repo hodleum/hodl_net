@@ -1,0 +1,48 @@
+# ################################ #
+# HODL NetStack Configuration File #
+# ################################ #
+
+title = "hodleum netstack config"
+
+['meta']
+    type = "hns.conf"
+    version = "0.0.1"
+
+['logging']
+    level = "DEBUG"
+
+# CONFIG
+
+["main"]            # NetStack Core Configuration
+    port = 8000
+
+["lpd"]             # Local Peer Discover Config
+    enabled = true
+
+    multicast_ip = '224.0.0.1'
+    port = 9999
+
+    send_interval = 2
+
+["deadpeer"]        # Dead Peer Detection Config
+    enabled = true
+
+    max_ping_en = false
+    max_ping = 300
+
+    echo_interval = 2
+
+["ppx"]             # Public Peer Exchange Config
+    enabled = true
+
+    nodes = [
+
+    "startnode.hodleum.org:49390",
+    "node.hodleum.solarfind.net:8000"
+
+    ]
+
+["upnp"]
+    enabled = true
+
+    search_timeout = 2

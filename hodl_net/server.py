@@ -9,6 +9,11 @@ from hodl_net.errors import UnhandledRequest
 from hodl_net.database import db_worker
 from hodl_net.cryptogr import gen_keys
 from hodl_net.globals import *
+from hodl_net.discovery import LPD
+from hodl_net.utils import NatWorker
+from hodl_net.config_loader import load_conf
+
+import sqlalchemy.exc
 
 import logging
 import random
@@ -19,6 +24,8 @@ log = logging.getLogger(__name__)
 
 peer: Peer
 user: User
+
+conf_file = load_conf()  # TODO: Remove hard-coded configuration loading
 
 
 def to_thread(f):
@@ -34,7 +41,7 @@ def call_from_thread(f, *args, **kwargs):
 
 class PeerProtocol(DatagramProtocol):
     """
-    Main protocol for all interaction with net.
+    Main protocol for all interaction with net stack.
     """
 
     name = None  # TODO: names
@@ -187,6 +194,20 @@ class PeerProtocol(DatagramProtocol):
             peers.append(_peer)
         return peers  # TODO: generator mb
 
+    def add_peer(self, _peer: Peer, method=None):
+        ses = db_worker.get_session()
+        ses.add(_peer)
+
+        try:
+            ses.commit()
+            if method:
+                log.info("Peer {} discovered by {}".format(_peer.addr, method))
+            else:
+                log.info("Peer {} discovered".format(_peer.addr))
+        except sqlalchemy.exc.IntegrityError:
+            pass
+        db_worker.close_session(ses)
+
     def send_all(self, message: Message):
         """
         Send request to all peers
@@ -218,8 +239,14 @@ class Server:
     _callbacks = TempDict()
     _on_close_func = None
     _on_open_func = None
+    ext_addr = (None, None)
 
-    def __init__(self, port: int = 8000, white: bool = True):
+    def __init__(self,
+                 port: int = conf_file['main']['port'],
+                 white: bool = True,
+                 lpd_port: int = conf_file['lpd']['port'],
+                 lpd_ip: str = conf_file['lpd']['multicast_ip'],
+                 lpd_interval: int = conf_file['lpd']['send_interval']):
         """
 
         :param port: port to start server
@@ -228,10 +255,21 @@ class Server:
         from twisted.internet import reactor
 
         self.port = port
+        self.lpd_port = lpd_port
+        self.lpd_ip = lpd_ip
+        self.lpd_interval = lpd_interval
         self.white = white
 
         self.reactor = reactor
         self.udp = PeerProtocol(self, reactor)
+
+        if conf_file['lpd']['enabled']:
+
+            self.lpd = LPD(self,
+                           self.lpd_port,
+                           self.port,
+                           self.lpd_ip,
+                           self.lpd_interval)
 
         self.prepared = False
 
@@ -290,9 +328,22 @@ class Server:
         logging.basicConfig(level=logging.DEBUG,
                             format=f'%(name)s.%(funcName)-20s [LINE:%(lineno)-3s]# [{self.port}]'
                             f' %(levelname)-8s [%(asctime)s]  %(message)s')
-
+# print(conf_file)
         self.reactor.listenUDP(self.port, self.udp)
-        log.info(f'Started at {self.port}')
+
+        if conf_file['lpd']['enabled']:
+            self.reactor.listenMulticast(self.lpd_port, self.lpd, listenMultiple=True)
+
+        log.info(f'Core started at {self.port}')
+
+        if conf_file['upnp']['enabled']:
+            nat_worker = NatWorker()
+
+            if nat_worker:
+                self.ext_addr = nat_worker.get_addrs()
+
+        log.info("Plugin loading finished.")
+
         self.prepared = True
 
     def run(self, *args, **kwargs):
