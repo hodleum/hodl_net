@@ -7,11 +7,14 @@ v0.0.1 by DanGSun - Basic Realization
 """
 
 import logging
+import json
 
 from twisted.internet.protocol import DatagramProtocol
-from json import dumps, loads
+from twisted.internet import task
+from twisted.internet import reactor
+
 from time import sleep
-from threading import Thread
+
 from hodl_net.discovery.core_emul import Core
 from hodl_net.models import Peer
 
@@ -32,10 +35,7 @@ class LPD(DatagramProtocol):
         self.lpd_ip = multicast_ip
         self.main_port = main_port
         self.announce_interval = lpd_interval
-
-    def announce(self):
-
-        data = {
+        self.data = {
             'prt': {
                 'nm': "HDN-NetStack",
                 'v': '2.0'
@@ -47,25 +47,25 @@ class LPD(DatagramProtocol):
             }
         }
 
-        while True:
-            try:
-                self.transport.write(dumps(data).encode(), (self.lpd_ip, self.lpd_port))
-            except AttributeError:
-                log.debug("Detected an AttributeError... Handling it, like a program stop")
-                break
-            sleep(self.announce_interval)
+        self.announcer = task.LoopingCall(self.announce)
 
-        log.info("LPD Caster Stopped...")
+    def announce(self):
+
+        try:
+            self.transport.write(json.dumps(self.data).encode(), (self.lpd_ip, self.lpd_port))
+        except AttributeError:
+            log.debug("Detected an AttributeError... Handling it, like a program stop")
+            self.announcer.stop()
+            log.info("LPD Caster Stopped...")
 
     def startProtocol(self):
         log.info(f"LPD Started at {self.lpd_port}")
-
+        self.announcer.start(self.announce_interval)
         # Join the multicast address, so we can receive replies:
         self.transport.joinGroup(self.lpd_ip)
-        Thread(target=self.announce).start()
 
     def datagramReceived(self, datagram, address):
-        dtgrm = loads(datagram.decode())
+        dtgrm = json.loads(datagram.decode())
         addr = "{}:{}".format(address[0], dtgrm['dt']['prt'])
         _peer = Peer(self, addr=addr)
         if _peer not in self.core.udp.peers:
