@@ -12,7 +12,7 @@ class NatWorker:
         self.dev_list = upnpclient.discover(timeout)
         log.debug(f"Fetch finished in {timeout}s")
         log.debug(f"Devices detected: {self.dev_list}")
-        if len(self.dev_list) == 0:
+        if not self.dev_list:
             log.warning("No UPnP Devices was found. Stopping NatWorker...")
             del self
 
