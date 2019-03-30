@@ -1,1 +1,1 @@
-from hodl_net.utils.natworks import NatWorker
+from .natworks import NatWorker

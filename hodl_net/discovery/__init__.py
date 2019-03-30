@@ -1,1 +1,1 @@
-from hodl_net.discovery.lpd import LPD
+from .lpd import LPD

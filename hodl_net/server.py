@@ -2,16 +2,16 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import reactor, defer
 from collections import defaultdict
 from typing import Callable, List
-from hodl_net.models import (
+from .models import (
     TempDict, Peer, User, Message, MessageWrapper, S
 )
-from hodl_net.errors import UnhandledRequest
-from hodl_net.database import db_worker
-from hodl_net.cryptogr import gen_keys
-from hodl_net.globals import *
-from hodl_net.discovery import LPD
-from hodl_net.utils import NatWorker
-from hodl_net.config_loader import load_conf
+from .errors import UnhandledRequest
+from .database import db_worker
+from .cryptogr import gen_keys
+from .globals import *
+from .discovery import LPD
+from .utils import NatWorker
+from .config_loader import load_conf
 
 import sqlalchemy.exc
 

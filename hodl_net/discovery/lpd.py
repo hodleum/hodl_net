@@ -15,8 +15,8 @@ from twisted.internet import reactor
 
 from time import sleep
 
-from hodl_net.discovery.core_emul import Core
-from hodl_net.models import Peer
+from .core_emul import Core
+from ..models import Peer
 
 log = logging.getLogger(__name__)
 

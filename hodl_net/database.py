@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import SingletonThreadPool
 from sqlalchemy.ext.declarative import declarative_base
-from hodl_net.globals import local, session
+from .globals import local, session
 import os
 
 Base = declarative_base()

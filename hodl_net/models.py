@@ -5,9 +5,9 @@ Models, required for net full-functioning
 from sqlalchemy import Column, String
 from typing import TypeVar, List, Any, Dict
 
-from hodl_net.cryptogr import get_random, verify, sign, encrypt, decrypt
-from hodl_net.errors import BadRequest, VerificationFailed, CryptogrError
-from hodl_net.database import Base
+from .cryptogr import get_random, verify, sign, encrypt, decrypt
+from .errors import BadRequest, VerificationFailed, CryptogrError
+from .database import Base
 
 import logging
 import uuid

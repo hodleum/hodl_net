@@ -1,6 +1,6 @@
-from hodl_net.models import *
-from hodl_net.server import peer, protocol, server, session, call_from_thread
-from hodl_net.database import db_worker
+from .models import *
+from .server import peer, protocol, server, session, call_from_thread
+from .database import db_worker
 
 
 @server.handle('share', 'request')

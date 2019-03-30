@@ -1,1 +1,1 @@
-from hodl_net import protocol, models, server
+from .hodl_net import protocol, models, server
