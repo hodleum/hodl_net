@@ -17,7 +17,7 @@ class NatWorker:
             del self
 
     def get_addrs(self):
-        return (None, None)  # TODO: Return real ext IP and port
+        return None, None  # TODO: Return real ext IP and port
 
 
 if __name__ == '__main__':

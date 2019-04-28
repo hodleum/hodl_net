@@ -1,6 +1,6 @@
 class Core:
 
-    class PeerProtocol():
+    class PeerProtocol:
         def __init__(self):
             self.peers = []
 

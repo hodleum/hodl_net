@@ -253,8 +253,6 @@ class MessageWrapper:
         if not verify(self.message.to_json(), self.sign, public_key):
             raise VerificationFailed('Bad signature')
 
-
-
     def prepare(self, private_key: str = None, public_key: str = None):
         """
         Prepare wrapper for send
